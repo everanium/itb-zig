@@ -1,0 +1,16 @@
+.{
+    .name = .libitb3,
+    .version = "0.5.1",
+    .fingerprint = 0xe0be93663e0721f8, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "eitb",
+        "benches",
+        "tests",
+        "README.md",
+    },
+}
