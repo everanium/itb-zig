@@ -16,7 +16,7 @@ string passed through to Go for validation; the binding carries no
 ITB construction logic, and buffer sizing plus the BufferTooSmall
 retry-once dance live in the C layer. The public surface is an
 allocator-parametric `Pipeline` (init / load / save / rekey / deinit,
-Single Message encrypt / decrypt, whole-buffer stream entries
+Single Message encrypt / decrypt, one-shot stream entries
 (`encryptStreamOneShot` and the pumps), incremental
 `EncryptStream` / `DecryptStream` sessions with write / end / read /
 drainAll), an `Opts` query-string builder for init overrides, the
@@ -122,6 +122,22 @@ override pair on load: `itb.Pipeline.load(allocator, blob, .{ .perm
 = &perm, .wrap = &wrap })` reopens the blob with fresh masters folded
 in.
 
+Every cipher output is allocated from the `Allocator` handed to
+`Pipeline.init` / `Pipeline.load` and owned by the caller — release
+with `allocator.free`. `encryptStreamOneShot` /
+`decryptStreamOneShot` put a whole in-memory payload through the
+stream chain in a single call. For bounded-memory streaming,
+`encryptStreamPump` / `decryptStreamPump` move a whole buffer through
+an incremental session; the explicit `encryptStream` /
+`decryptStream` sessions expose `write` / `end` / `read` /
+`drainAll` for caller-driven loops. A session holds a `parent`
+pointer to its Pipeline and must be deinited before it.
+
+Profile names, opts keys, and every primitive name are validated by
+the Go side; a rejected string surfaces as a Zig error (for example
+`error.BadInput`) with the diagnostic available via
+`itb.lastError()`.
+
 ## Persisting sessions
 
 The blob returned by `save` is a self-describing session bundle: it
@@ -151,12 +167,10 @@ library directly and register the same custom primitive under the
 same name before opening. Attempting to `load` such a blob through
 this binding surfaces `error.RecipePrimitiveUnknown`.
 
-**Runtime tuning.** The worker cap is per-machine and never travels
-in the blob; the receiver may pick its own after `load`:
-
-```zig
-try receiver.maxWorkers(4);   // clamped by libitb3; <= 0 selects auto
-```
+**Runtime tuning.** `receiver.maxWorkers(n)` sets the worker cap for
+every subsequent cipher call (`n <= 0` selects auto, `n > 256` is
+clamped to 256); the receiver may pick its own worker cap after
+`load` — the cap is per-machine and never written to the blob.
 
 ## Profile registry
 
@@ -174,22 +188,6 @@ try itb.register("my-nomac-plain",
 const record = try itb.lookup(allocator, "my-nomac-plain"); // record with "name" filled in
 const names = try itb.profiles(allocator);                  // ["blob-triple-mac-v1", ...]
 ```
-
-Every cipher output is allocated from the `Allocator` handed to
-`Pipeline.init` / `Pipeline.load` and owned by the caller — release
-with `allocator.free`. `encryptStreamOneShot` /
-`decryptStreamOneShot` put a whole in-memory payload through the
-stream chain in a single call. For bounded-memory streaming,
-`encryptStreamPump` / `decryptStreamPump` move a whole buffer through
-an incremental session; the explicit `encryptStream` /
-`decryptStream` sessions expose `write` / `end` / `read` /
-`drainAll` for caller-driven loops. A session holds a `parent`
-pointer to its Pipeline and must be deinited before it.
-
-Profile names, opts keys, and every primitive name are validated by
-the Go side; a rejected string surfaces as a Zig error (for example
-`error.BadInput`) with the diagnostic available via
-`itb.lastError()`.
 
 ## Memory
 
@@ -228,14 +226,17 @@ parity checks; the deep suite lives in Go under the shipped tree.
 ./bindings/zig/run_bench.sh
 ```
 
-Micro-benches (always ReleaseFast): `message` (encryptMessage) and
-`stream_pump` (encrypt stream pump) throughput at 1 MiB / 16 MiB /
-64 MiB, reported as an MB/s table on stdout. The runner exports
+Micro-benches (always ReleaseFast): `message` (encryptMessage),
+`stream_pump` (encrypt stream pump) and `stream_one_shot`
+(encryptStreamOneShot) throughput at 1 MiB / 16 MiB / 64 MiB,
+reported as an MB/s table on stdout. The runner exports
 `ITB_GOMEMLIMIT=4GiB` + `ITB_GOGC=100` defaults plus the canonical
 bench-shape env vars (`ITB_NONCE_BITS` / `ITB_KEY_BITS` /
 `ITB_WITH_PARALLAX` / `ITB_WITH_WRAPPER` / `ITB_INNER_HASH` /
 `ITB_PROFILE` / `ITB_BENCH_MIN_SEC`), respecting caller overrides;
-the bench binaries apply the same heap caps programmatically.
+the bench binaries apply the same heap caps programmatically. See
+[`bindings/BENCH.md`](https://github.com/everanium/itb/blob/main/bindings/BENCH.md)
+for the fleet-wide configuration authority and comparison tables.
 
 ## itb3 CLI
 
@@ -247,6 +248,28 @@ payloads directly on disk (`-i` / `-o`) or through stdin / stdout,
 rotates outer masters, and inspects stored blobs. See
 [`cmd/itb3/README.md`](https://github.com/everanium/itb/blob/main/cmd/itb3/README.md) for the full
 subcommand reference.
+
+## loop utility
+
+A long-run stress harness under `bindings/zig/loop/` holds one
+Pipeline handle for minutes, cycles encrypt → decrypt → compare
+round-trips through it, rotates the outer masters and reopens the
+handle from its session blob on a schedule, and reports whether the
+process survived with every byte intact. It is the binding-side
+counterpart of the Go harness under `tools/loop`: same flags, same
+round structure, same summary in both renderings.
+
+```bash
+cd bindings/zig && zig build loop
+./run_loop.sh --duration 2m --shape both
+```
+
+`./zig-out/bin/loop -h` lists every flag. Concurrency mode:
+**shared-handle** — OS threads call into one Pipeline handle
+concurrently, which libitb3 permits once the handle is constructed
+and the binding's `Pipeline` struct allows (it adds no
+synchronisation of its own), so `--goroutines` is the thread count
+verbatim.
 
 ## eitb utility
 

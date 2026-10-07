@@ -117,3 +117,15 @@ test "register profile, use it, duplicate is ProfileExists" {
         itb.register("zig-binding-test-mixed", reg),
     );
 }
+
+test "unknown drbg name is RecipePrimitiveUnknown with the token in the diagnostic" {
+    const gpa = std.testing.allocator;
+    const opts = try itb.Opts.init();
+    defer opts.deinit();
+    try opts.set("drbg", "nope");
+    try std.testing.expectError(
+        error.RecipePrimitiveUnknown,
+        itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", opts),
+    );
+    try std.testing.expect(std.mem.indexOf(u8, itb.lastError(), "nope") != null);
+}

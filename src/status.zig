@@ -44,8 +44,10 @@ pub const Status = enum(c_uint) {
         return @enumFromInt(rc);
     }
 
-    /// Short static label for the code (C-side string literal).
-    pub fn label(self: Status) [:0]const u8 {
-        return std.mem.span(ffi.itb_status_str(@intFromEnum(self)));
+    /// The numeric code this status carries. The printed form of a
+    /// failure quotes the number beside the library's own sentence,
+    /// so a caller reads it here rather than keeping a table.
+    pub fn code(self: Status) c_uint {
+        return @intFromEnum(self);
     }
 };

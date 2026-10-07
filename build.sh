@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# build.sh -- one-step build for the Zig binding: libitb3.so + the C
-# binding static archive + the Zig library / eitb / bench binaries.
+# One-step build for the Zig binding: libitb3.so + the C binding
+# static archive + the Zig library / eitb / bench binaries.
 # Prerequisites (Go, a C11 compiler, GNU make, Zig 0.16+) must be
 # installed separately; see README.md "Prerequisites".
 #

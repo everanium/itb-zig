@@ -72,3 +72,40 @@ pub fn check(rc: c_uint) Error!void {
 pub fn lastError() [:0]const u8 {
     return std.mem.span(ffi.itb_last_error());
 }
+
+/// The `Status` an `Error` value was mapped from — the inverse of
+/// `check`, for a caller that has to quote the numeric code beside the
+/// library's diagnostic.
+///
+/// The mapping `check` performs is lossy at its edges: the reserved
+/// block 14..17 and any code the table does not name both arrive as
+/// `Error.Internal`, so both come back as `.internal` (99). Every code
+/// the table names round-trips exactly. `OutOfMemory` originates on
+/// the Zig side of the wrapper rather than in the library and has no
+/// code of its own, so it maps to `.internal` too.
+pub fn statusOf(e: Error) Status {
+    return switch (e) {
+        Error.BadHash => .bad_hash,
+        Error.BadKeyBits => .bad_key_bits,
+        Error.BadHandle => .bad_handle,
+        Error.BadInput => .bad_input,
+        Error.BufferTooSmall => .buffer_too_small,
+        Error.EncryptFailed => .encrypt_failed,
+        Error.DecryptFailed => .decrypt_failed,
+        Error.SeedWidthMix => .seed_width_mix,
+        Error.BadMac => .bad_mac,
+        Error.MacFailure => .mac_failure,
+        Error.BlobMalformedRecipe => .blob_malformed_recipe,
+        Error.RecipePrimitiveUnknown => .recipe_primitive_unknown,
+        Error.UnknownProfile => .unknown_profile,
+        Error.BlobModeMismatch => .blob_mode_mismatch,
+        Error.BlobMalformed => .blob_malformed,
+        Error.BlobVersionTooNew => .blob_version_too_new,
+        Error.BlobTooManyOpts => .blob_too_many_opts,
+        Error.StreamTruncated => .stream_truncated,
+        Error.StreamAfterFinal => .stream_after_final,
+        Error.TripleClosed => .triple_closed,
+        Error.ProfileExists => .profile_exists,
+        Error.Internal, Error.OutOfMemory => .internal,
+    };
+}

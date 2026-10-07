@@ -34,6 +34,7 @@ const error_mod = @import("error.zig");
 pub const Error = error_mod.Error;
 pub const check = error_mod.check;
 pub const lastError = error_mod.lastError;
+pub const statusOf = error_mod.statusOf;
 
 pub const Opts = @import("opts.zig").Opts;
 
@@ -51,6 +52,12 @@ pub const inspect = runtime_mod.inspect;
 pub const register = runtime_mod.register;
 pub const lookup = runtime_mod.lookup;
 pub const profiles = runtime_mod.profiles;
+pub const hashNames = runtime_mod.hashNames;
 pub const version = runtime_mod.version;
+pub const drbgAutoTier = runtime_mod.drbgAutoTier;
 pub const setMemoryLimit = runtime_mod.setMemoryLimit;
 pub const setGcPercent = runtime_mod.setGcPercent;
+pub const setGomaxprocs = runtime_mod.setGomaxprocs;
+pub const writeHeapProfile = runtime_mod.writeHeapProfile;
+pub const poolStatsLen = runtime_mod.poolStatsLen;
+pub const poolStats = runtime_mod.poolStats;

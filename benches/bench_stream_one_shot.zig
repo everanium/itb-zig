@@ -1,4 +1,4 @@
-//! encryptStreamOneShot throughput vs plaintext size (streaming
+//! encryptStreamOneShot throughput vs plaintext size (Streaming
 //! Non-AEAD profile) at 1 MiB / 16 MiB / 64 MiB. Times the
 //! whole-buffer path (a single FFI round trip through the Pipeline's
 //! stream chain).
@@ -28,9 +28,9 @@ fn runStreamOneShotDec(ctx: *const DecCtx) !void {
 }
 
 pub fn main(init: std.process.Init) !void {
-    // Bench-scale allocation churn leaks Go scratch heap unboundedly
-    // without a soft memory cap + aggressive GC; the return values
-    // report the previous settings, not an error.
+    // Bench-scale allocation churn grows the Go scratch heap
+    // unboundedly without a soft memory cap + aggressive GC; the
+    // return values report the previous settings, not an error.
     _ = itb.setMemoryLimit(4 << 30); // 4 GiB soft cap
     _ = itb.setGcPercent(100); // balanced GC
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run_tests.sh -- Build and run the Zig binding integration tests.
+# Build and run the Zig binding integration tests.
 #
 # Each tests/<name>.zig compiles to its own test binary and runs as a
 # separate process, sequentially; per-process isolation gives every

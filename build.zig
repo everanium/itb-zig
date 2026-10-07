@@ -1,7 +1,9 @@
 //! Build for the ITB Zig binding (thin proxy over the C binding).
 //!
 //! Targets:
-//!   zig build          — eitb CLI + bench binaries into zig-out/bin/
+//!   zig build          — eitb CLI + loop harness + bench binaries
+//!                        into zig-out/bin/
+//!   zig build loop     — the loop stress harness alone
 //!   zig build test     — the tests/*.zig integration suite (one
 //!                        process per test file, run sequentially)
 //!   zig build bench    — runs bench_message + bench_stream +
@@ -26,6 +28,7 @@ const test_names = [_][]const u8{
     "stream_incremental",
     "stream_cancel",
     "stream_sticky",
+    "runtime",
 };
 
 const bench_names = [_][]const u8{ "bench_message", "bench_stream", "bench_stream_one_shot" };
@@ -68,6 +71,24 @@ pub fn build(b: *std.Build) void {
         }),
     });
     b.installArtifact(eitb);
+
+    // Long-run stress harness. It installs with everything else so
+    // `zig build` produces it, and carries its own step so the fleet
+    // entry point can build the utility alone.
+    const loop = b.addExecutable(.{
+        .name = "loop",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("loop/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+            .imports = &.{.{ .name = "itb3", .module = itb_mod }},
+        }),
+    });
+    const loop_install = b.addInstallArtifact(loop, .{});
+    b.getInstallStep().dependOn(&loop_install.step);
+    const loop_step = b.step("loop", "Build the loop stress harness");
+    loop_step.dependOn(&loop_install.step);
 
     // Integration tests: one binary per tests/<name>.zig, run
     // sequentially so every file gets a fresh libitb3 global state

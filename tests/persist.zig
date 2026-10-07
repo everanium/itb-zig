@@ -118,3 +118,62 @@ test "maxWorkers clamps and round-trips; closed pipeline reports TripleClosed" {
     try receiver.maxWorkers(1);
     try roundTrip(gpa, &sender, &receiver);
 }
+
+/// Builds a register payload from an inspected profile: the record
+/// minus the name and the inspection-only nonce_bits / barrier_fill /
+/// container_mode keys, which sit contiguously between keybits and
+/// drbg.
+fn registerPayload(gpa: std.mem.Allocator, inspected: []const u8) ![:0]u8 {
+    const mode = std.mem.indexOf(u8, inspected, "\"mode\"") orelse return error.TestUnexpectedResult;
+    const cut = std.mem.indexOf(u8, inspected, "\"nonce_bits\"") orelse return error.TestUnexpectedResult;
+    const drbg = std.mem.indexOf(u8, inspected, "\"drbg\"") orelse return error.TestUnexpectedResult;
+    if (cut > drbg) return error.TestUnexpectedResult;
+    return std.mem.concatWithSentinel(gpa, u8, &.{ "{", inspected[mode..cut], inspected[drbg..] }, 0);
+}
+
+test "drbg names round-trip and inspect reports them; register copy keeps the key" {
+    const gpa = std.testing.allocator;
+    const names = [_][:0]const u8{ "csprng", "aesitb128" };
+    for (names) |name| {
+        const opts = try itb.Opts.init();
+        defer opts.deinit();
+        try opts.set("drbg", name);
+        var sender = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", opts);
+        defer sender.deinit();
+        const blob = try sender.save();
+        defer gpa.free(blob);
+        var receiver = try itb.Pipeline.load(gpa, blob, null);
+        defer receiver.deinit();
+        try roundTrip(gpa, &sender, &receiver);
+        try roundTrip(gpa, &receiver, &sender);
+
+        const inspected = try itb.inspect(gpa, blob);
+        defer gpa.free(inspected);
+        const want = try std.mem.concat(gpa, u8, &.{ "\"drbg\":\"", name, "\"" });
+        defer gpa.free(want);
+        try std.testing.expect(std.mem.indexOf(u8, inspected, want) != null);
+
+        if (std.mem.eql(u8, name, "csprng")) {
+            const payload = try registerPayload(gpa, inspected);
+            defer gpa.free(payload);
+            try itb.register("zig-binding-test-drbg-copy", payload);
+            const looked = try itb.lookup(gpa, "zig-binding-test-drbg-copy");
+            defer gpa.free(looked);
+            try std.testing.expect(std.mem.indexOf(u8, looked, "\"drbg\":\"csprng\"") != null);
+        }
+    }
+}
+
+test "default drbg is absent from inspect and from a shipped lookup" {
+    const gpa = std.testing.allocator;
+    var sender = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", null);
+    defer sender.deinit();
+    const blob = try sender.save();
+    defer gpa.free(blob);
+    const inspected = try itb.inspect(gpa, blob);
+    defer gpa.free(inspected);
+    try std.testing.expect(std.mem.indexOf(u8, inspected, "\"drbg\"") == null);
+    const looked = try itb.lookup(gpa, "singlemsg-triple-mac-v1");
+    defer gpa.free(looked);
+    try std.testing.expect(std.mem.indexOf(u8, looked, "\"drbg\"") == null);
+}
