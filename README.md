@@ -100,6 +100,8 @@ travels inside the blob, so the receiver needs no options of its own:
 ```zig
 var opts = try itb.Opts.init();
 defer opts.deinit();
+// Mode 1 per-region (default), Mode 2 per-container (compact VPN tunnel mode)
+try opts.set("mode", "2");
 try opts.set("chunkSize", "65536");
 try opts.set("withWrapper", "false");
 try opts.set("maxWorkers", "4");

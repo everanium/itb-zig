@@ -70,9 +70,11 @@ test "inspect carries recipe plus inspection-only fields; garbage is BadInput" {
     try std.testing.expect(std.mem.indexOf(u8, inspected, "\"mode\":\"singlemsg-mac\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, inspected, "\"nonce_bits\":") != null);
     try std.testing.expect(std.mem.indexOf(u8, inspected, "\"barrier_fill\":") != null);
+    try std.testing.expect(std.mem.indexOf(u8, inspected, "\"container_mode\":1") != null);
     try std.testing.expect(std.mem.indexOf(u8, looked, "\"name\":\"singlemsg-triple-mac-v1\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, looked, "\"nonce_bits\":") == null);
     try std.testing.expect(std.mem.indexOf(u8, looked, "\"barrier_fill\":") == null);
+    try std.testing.expect(std.mem.indexOf(u8, looked, "\"container_mode\":") == null);
     try std.testing.expectError(error.BadInput, itb.inspect(gpa, "not a blob"));
 }
 
@@ -177,3 +179,18 @@ test "default drbg is absent from inspect and from a shipped lookup" {
     defer gpa.free(looked);
     try std.testing.expect(std.mem.indexOf(u8, looked, "\"drbg\"") == null);
 }
+
+test "container floor sizing mode 2 reports container_mode 2" {
+    const gpa = std.testing.allocator;
+    var opts = try itb.Opts.init();
+    defer opts.deinit();
+    try opts.set("mode", "2");
+    var pipe = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", opts);
+    defer pipe.deinit();
+    const blob = try pipe.save();
+    defer gpa.free(blob);
+    const inspected = try itb.inspect(gpa, blob);
+    defer gpa.free(inspected);
+    try std.testing.expect(std.mem.indexOf(u8, inspected, "\"container_mode\":2") != null);
+}
+

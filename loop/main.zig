@@ -703,25 +703,6 @@ fn logPipelineInitialised(gpa: std.mem.Allocator, profile: []const u8, blob: []c
     );
 }
 
-/// Sets the inner blob's "mode" field of a wrap-layer session blob to
-/// target_mode (1 = per-region, 2 = per-container) in place. The wrap
-/// layer's profile record carries its own "mode" (a string), so the
-/// search starts at the inner blob ("ib"); both shipped modes are one
-/// digit wide, so the blob length does not change and the key material
-/// in blob is never copied. Returns false when the inner blob or its
-/// mode field is not found.
-fn editInnerBlobMode(blob: []u8, target_mode: u8) bool {
-    const ib_key = "\"ib\":{";
-    const mode_key = "\"mode\":";
-    const ib = std.mem.indexOf(u8, blob, ib_key) orelse return false;
-    const off = ib + ib_key.len;
-    const mode = std.mem.indexOf(u8, blob[off..], mode_key) orelse return false;
-    const at = off + mode + mode_key.len;
-    if (at + 1 >= blob.len or blob[at] < '1' or blob[at] > '2' or std.ascii.isDigit(blob[at + 1])) return false;
-    blob[at] = '0' + target_mode;
-    return true;
-}
-
 /// Constructs one Pipeline against profile with every flag-carried
 /// override in the opts string (zero values included — the shared
 /// library treats zero as "profile default"), then obtains the Init
@@ -742,6 +723,7 @@ fn buildPipeline(
     };
     defer opts.deinit();
     var num: [32]u8 = undefined;
+    setNum(opts, "mode", &num, cfg.blob_mode);
     const hash_z = gpa.dupeZ(u8, cfg.hash) catch return false;
     defer gpa.free(hash_z);
     const mac_z = gpa.dupeZ(u8, cfg.mac) catch return false;
@@ -777,23 +759,6 @@ fn buildPipeline(
         pipe.deinit();
         return false;
     };
-    if (cfg.blob_mode == 2) {
-        // The sizing mode is not an Opts knob: the Init blob is edited
-        // and the pipeline reopened from it, so the retained blob (the
-        // one blob-cycle reopens from) carries the edited mode.
-        if (!editInnerBlobMode(blob, 2)) {
-            err("rewrite blob mode: inner blob mode field not found", .{});
-            pipe.deinit();
-            gpa.free(blob);
-            return false;
-        }
-        pipe.deinit();
-        pipe = itb.Pipeline.load(gpa, blob, null) catch |e| {
-            err("reload Mode 2 blob: status {d}: {s}", .{ itb.statusOf(e).code(), itb.lastError() });
-            gpa.free(blob);
-            return false;
-        };
-    }
     out_pipe.* = pipe;
     out_blob.* = blob;
     logPipelineInitialised(gpa, profile, blob);
