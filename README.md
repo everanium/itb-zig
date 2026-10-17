@@ -15,7 +15,7 @@ Every hash-name / MAC-name / cipher-name / profile-name is an opaque
 string passed through to Go for validation; the binding carries no
 ITB construction logic, and buffer sizing plus the BufferTooSmall
 retry-once dance live in the C layer. The public surface is an
-allocator-parametric `Pipeline` (init / load / save / rekey / deinit,
+allocator-parametric `Pipeline` (init / initKeys / load / save / rekey / deinit,
 Single Message encrypt / decrypt, one-shot stream entries
 (`encryptStreamOneShot` and the pumps), incremental
 `EncryptStream` / `DecryptStream` sessions with write / end / read /
@@ -107,6 +107,8 @@ try opts.set("withWrapper", "false");
 try opts.set("maxWorkers", "4");
 var sender = try itb.Pipeline.init(allocator, "singlemsg-triple-mac-v1", opts);
 ```
+
+`Pipeline.initKeys` constructs a `Pipeline` deterministically from eight caller-supplied master keys (one per seed slot `0..7`) via per-slot KDF, so two peers holding the same eight master keys derive identical `Pipeline` instances without exchanging a session blob. The eight master keys must come from independent entropy or key-agreement sources — never derive all eight keys from a single secret or a single KDF parent key.
 
 `Pipeline.rekey` rotates the parallax + wrapper masters mid-session
 (the eight ITB seeds and MAC key are fixed for the session lifetime

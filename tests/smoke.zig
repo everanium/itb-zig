@@ -33,3 +33,48 @@ test "smoke round trip" {
     defer gpa.free(back);
     try std.testing.expectEqualSlices(u8, plain, back);
 }
+
+test "initKeys determinism and errors" {
+    const gpa = std.testing.allocator;
+
+    const k0 = [_]u8{0x11} ** 32;
+    const k1 = [_]u8{0x22} ** 32;
+    const k2 = [_]u8{0x33} ** 32;
+    const k3 = [_]u8{0x44} ** 32;
+    const k4 = [_]u8{0x55} ** 32;
+    const k5 = [_]u8{0x66} ** 32;
+    const k6 = [_]u8{0x77} ** 32;
+    const k7 = [_]u8{0x88} ** 32;
+    const masters = [_][]const u8{ &k0, &k1, &k2, &k3, &k4, &k5, &k6, &k7 };
+
+    var p1 = try itb.Pipeline.initKeys(gpa, "singlemsg-triple-mac-v1", null, &masters);
+    defer p1.deinit();
+    var p2 = try itb.Pipeline.initKeys(gpa, "singlemsg-triple-mac-v1", null, &masters);
+    defer p2.deinit();
+
+    const b1 = try p1.save();
+    defer gpa.free(b1);
+    const b2 = try p2.save();
+    defer gpa.free(b2);
+    try std.testing.expectEqualSlices(u8, b1, b2);
+
+    const plain = "initKeys determinism payload";
+    const wire = try p1.encryptMessage(plain);
+    defer gpa.free(wire);
+    const back = try p2.decryptMessage(wire);
+    defer gpa.free(back);
+    try std.testing.expectEqualSlices(u8, plain, back);
+
+    const dup = [_][]const u8{ &k0, &k0, &k2, &k3, &k4, &k5, &k6, &k7 };
+    try std.testing.expectError(
+        error.BadInput,
+        itb.Pipeline.initKeys(gpa, "singlemsg-triple-mac-v1", null, &dup),
+    );
+
+    const short_k = [_]u8{ 1, 2, 3, 4, 5, 6, 7, 8 };
+    const short = [_][]const u8{ &short_k, &k1, &k2, &k3, &k4, &k5, &k6, &k7 };
+    try std.testing.expectError(
+        error.BadInput,
+        itb.Pipeline.initKeys(gpa, "singlemsg-triple-mac-v1", null, &short),
+    );
+}

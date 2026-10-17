@@ -44,6 +44,49 @@ pub const Pipeline = struct {
         return .{ .allocator = allocator, .handle = handle.? };
     }
 
+    /// Deterministically constructs a Pipeline from eight caller-supplied
+    /// master keys (one per canonical seed slot 0..7) against the named
+    /// profile and options. The eight master keys must come from
+    /// independent entropy or key-agreement sources; never derive all
+    /// eight keys from a single secret or a single KDF parent key.
+    pub fn initKeys(
+        allocator: Allocator,
+        profile: [:0]const u8,
+        opts: ?Opts,
+        masters: []const []const u8,
+    ) err.Error!Pipeline {
+        const master_lens = try allocator.alloc(usize, masters.len);
+        defer allocator.free(master_lens);
+        var flat_len: usize = 0;
+        for (masters, 0..) |m, i| {
+            master_lens[i] = m.len;
+            flat_len += m.len;
+        }
+        const masters_flat = try allocator.alloc(u8, flat_len);
+        defer {
+            std.crypto.secureZero(u8, masters_flat);
+            allocator.free(masters_flat);
+        }
+        var off: usize = 0;
+        for (masters) |m| {
+            if (m.len > 0) {
+                @memcpy(masters_flat[off .. off + m.len], m);
+                off += m.len;
+            }
+        }
+        var handle: ?*ffi.itb_pipeline = null;
+        try err.check(ffi.itb_pipeline_init_keys(
+            profile.ptr,
+            optsHandle(opts),
+            if (flat_len > 0) masters_flat.ptr else null,
+            flat_len,
+            if (masters.len > 0) master_lens.ptr else null,
+            masters.len,
+            &handle,
+        ));
+        return .{ .allocator = allocator, .handle = handle.? };
+    }
+
     /// Reconstructs a Pipeline from a blob produced by `save` /
     /// `rekey`. `masters` is `null` to use the blob-embedded masters,
     /// or a pair to override them. The profile shape travels inside
