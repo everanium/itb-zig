@@ -139,7 +139,12 @@ pub const Pipeline = struct {
         var out: [*c]u8 = null;
         var out_len: usize = 0;
         const rc = ffi.itb_pipeline_save(self.handle, &out, &out_len);
-        defer ffi.itb_bytes_free(out);
+        defer {
+            if (out != null and out_len > 0) {
+                std.crypto.secureZero(u8, out[0..out_len]);
+            }
+            ffi.itb_bytes_free(out);
+        }
         try err.check(rc);
         return self.copyOut(out, out_len);
     }
@@ -173,7 +178,12 @@ pub const Pipeline = struct {
             &out,
             &out_len,
         );
-        defer ffi.itb_bytes_free(out);
+        defer {
+            if (out != null and out_len > 0) {
+                std.crypto.secureZero(u8, out[0..out_len]);
+            }
+            ffi.itb_bytes_free(out);
+        }
         try err.check(rc);
         return self.copyOut(out, out_len);
     }
