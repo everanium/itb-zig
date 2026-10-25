@@ -369,6 +369,8 @@ fn emitJson(o: *std.ArrayList(u8), gpa: std.mem.Allocator, r: *RunState, pd: Poo
     try jsonString(o, gpa, cfg.drbg);
     try o.appendSlice(gpa, ",\"drbg_auto_tier\":");
     try jsonString(o, gpa, itb.drbgAutoTier());
+    try o.appendSlice(gpa, ",\"interlock\":");
+    try jsonString(o, gpa, cfg.interlock);
     try o.print(gpa, ",\"chunk_size_bytes\":{d}", .{cfg.chunk_size});
     try o.print(gpa, ",\"barrier_fill\":{d}", .{cfg.barrier_fill});
     try o.print(gpa, ",\"parallax\":\"{s}\"", .{onOff(cfg.parallax)});

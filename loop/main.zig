@@ -157,6 +157,7 @@ const RawFlags = struct {
     gomaxprocs: i32 = 0,
     goroutines: i32 = 3,
     hash: []const u8 = "areion512",
+    interlock: []const u8 = "",
     iterations: i64 = 0,
     json_output: bool = false,
     key_bits: i32 = 0,
@@ -196,6 +197,7 @@ const RawFlags = struct {
         if (std.mem.eql(u8, name, "drbg")) return &self.drbg;
         if (std.mem.eql(u8, name, "duration")) return &self.duration;
         if (std.mem.eql(u8, name, "hash")) return &self.hash;
+        if (std.mem.eql(u8, name, "interlock")) return &self.interlock;
         if (std.mem.eql(u8, name, "mac")) return &self.mac;
         if (std.mem.eql(u8, name, "memlimit")) return &self.memlimit;
         if (std.mem.eql(u8, name, "memprofile")) return &self.memprofile;
@@ -277,6 +279,7 @@ const flag_table = [_]Flag{
     .{ .name = "gomaxprocs", .type_label = "int", .kind = .int, .help = "Go runtime GOMAXPROCS override; 0 = inherit from the environment" },
     .{ .name = "goroutines", .type_label = "int", .kind = .int, .help = "concurrent workers (1..10); on runtimes without parallelism values above 1 are clamped to 1" },
     .{ .name = "hash", .type_label = "string", .kind = .string, .help = "inner ITB hash primitive name" },
+    .{ .name = "interlock", .type_label = "string", .kind = .string, .help = "Interlocked Barrier chunk width: 48 | 168; empty = profile default (48; 168 requires 512-bit hash)" },
     .{ .name = "iterations", .type_label = "int", .kind = .int64, .help = "fixed per-worker iteration count; 0 = duration-based" },
     .{ .name = "json-output", .type_label = "", .kind = .boolean, .help = "print the final summary as one compact JSON object instead of log lines" },
     .{ .name = "key-bits", .type_label = "int", .kind = .int, .help = "per-seed key width in bits: 512 | 1024 | 2048; 0 = profile default (1024)" },
@@ -571,6 +574,11 @@ fn parseFlags(gpa: std.mem.Allocator, argv: []const [*:0]const u8, cfg: *Config,
         },
     }
     cfg.drbg = f.drbg; // validated by Init: no DRBG-name enumeration exists
+    cfg.interlock = f.interlock;
+    if (cfg.interlock.len > 0 and !std.mem.eql(u8, cfg.interlock, "48") and !std.mem.eql(u8, cfg.interlock, "168")) {
+        err("--interlock must be 48 | 168 (or empty = profile default), got \"{s}\"", .{cfg.interlock});
+        return .fail;
+    }
     cfg.chunk_size = size.parseSize(f.chunk_size) orelse {
         err("--chunk-size: invalid size \"{s}\"", .{f.chunk_size});
         return .fail;
@@ -685,6 +693,10 @@ fn logPipelineInitialised(gpa: std.mem.Allocator, profile: []const u8, blob: []c
     if (!std.mem.eql(u8, drbg, "-")) {
         if (std.fmt.bufPrint(tail_buf[tail_len..], " drbg={s}", .{drbg})) |t| tail_len += t.len else |_| {}
     }
+    const interlock = recordStr(obj, "interlock");
+    if (!std.mem.eql(u8, interlock, "-")) {
+        if (std.fmt.bufPrint(tail_buf[tail_len..], " interlock={s}", .{interlock})) |t| tail_len += t.len else |_| {}
+    }
     line(
         "pipeline initialised: profile={s} blob={d} bytes hash={s} key-bits={d} nonce-bits={d} barrier-fill={d} chunk-size={d} mac={s} parallax={s} wrapper={s}{s}",
         .{
@@ -730,6 +742,8 @@ fn buildPipeline(
     defer gpa.free(mac_z);
     const drbg_z = gpa.dupeZ(u8, cfg.drbg) catch return false;
     defer gpa.free(drbg_z);
+    const interlock_z = gpa.dupeZ(u8, cfg.interlock) catch return false;
+    defer gpa.free(interlock_z);
     opts.set("innerHash", hash_z) catch {};
     opts.set("macName", mac_z) catch {};
     opts.set("withParallax", if (cfg.parallax) "true" else "false") catch {};
@@ -738,6 +752,7 @@ fn buildPipeline(
     setNum(opts, "nonceBits", &num, cfg.nonce_bits);
     setNum(opts, "barrierFill", &num, cfg.barrier_fill);
     opts.set("drbg", drbg_z) catch {};
+    opts.set("interlock", interlock_z) catch {};
     setNum(opts, "chunkSize", &num, cfg.chunk_size);
 
     if (cfg.profile.len > 0) {
@@ -816,7 +831,7 @@ fn run(gpa: std.mem.Allocator, argv: []const [*:0]const u8) u8 {
         },
     );
     line(
-        "overrides: profile=\"{s}\" key-bits={d} nonce-bits={d} chunk-size={s} barrier-fill={d} gomaxprocs={d} rekey-every={d} blob-cycle-every={d} payload-mode={s} seed={d} json-output={s}{s}{s}{s}",
+        "overrides: profile=\"{s}\" key-bits={d} nonce-bits={d} chunk-size={s} barrier-fill={d} gomaxprocs={d} rekey-every={d} blob-cycle-every={d} payload-mode={s} seed={d} json-output={s}{s}{s}{s}{s}{s}",
         .{
             cfg.profile,     cfg.key_bits,    cfg.nonce_bits,
             size.humanBytes(&a, cfg.chunk_size), cfg.barrier_fill, cfg.gomaxprocs,
@@ -825,6 +840,8 @@ fn run(gpa: std.mem.Allocator, argv: []const [*:0]const u8) u8 {
             if (cfg.blob_mode != 1) (std.fmt.bufPrint(&b, " blob-mode={d}", .{cfg.blob_mode}) catch "") else "",
             if (cfg.drbg.len > 0) " drbg=" else "",
             cfg.drbg,
+            if (cfg.interlock.len > 0) " interlock=" else "",
+            cfg.interlock,
         },
     );
     const microbatch = policyLabel("ITB_MICROBATCH_TIERS");

@@ -194,3 +194,42 @@ test "container floor sizing mode 2 reports container_mode 2" {
     try std.testing.expect(std.mem.indexOf(u8, inspected, "\"container_mode\":2") != null);
 }
 
+test "interlock 168 round trips, travels in the blob, and rejects invalid inputs" {
+    const gpa = std.testing.allocator;
+    var opts = try itb.Opts.init();
+    defer opts.deinit();
+    try opts.set("interlock", "168");
+    var sender = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", opts);
+    defer sender.deinit();
+
+    const blob = try sender.save();
+    defer gpa.free(blob);
+    var receiver = try itb.Pipeline.load(gpa, blob, null);
+    defer receiver.deinit();
+    try roundTrip(gpa, &sender, &receiver);
+    try roundTrip(gpa, &receiver, &sender);
+
+    const inspected = try itb.inspect(gpa, blob);
+    defer gpa.free(inspected);
+    try std.testing.expect(std.mem.indexOf(u8, inspected, "\"interlock\":\"168\"") != null);
+
+    var def_pipe = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", null);
+    defer def_pipe.deinit();
+    const def_blob = try def_pipe.save();
+    defer gpa.free(def_blob);
+    const def_inspected = try itb.inspect(gpa, def_blob);
+    defer gpa.free(def_inspected);
+    try std.testing.expect(std.mem.indexOf(u8, def_inspected, "\"interlock\"") == null);
+
+    var bad_width = try itb.Opts.init();
+    defer bad_width.deinit();
+    try bad_width.set("innerHash", "blake3");
+    try bad_width.set("interlock", "168");
+    try std.testing.expectError(error.BadInput, itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", bad_width));
+
+    var bad_val = try itb.Opts.init();
+    defer bad_val.deinit();
+    try bad_val.set("interlock", "96");
+    try std.testing.expectError(error.BadInput, itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", bad_val));
+}
+

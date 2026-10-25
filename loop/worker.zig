@@ -75,6 +75,7 @@ pub const Config = struct {
     chunk_size: i64 = 0, // 0 = profile default
     barrier_fill: i32 = 0, // 0 = profile default
     drbg: []const u8 = "", // DRBG fill primitive; "" = profile default (auto tier)
+    interlock: []const u8 = "", // Interlocked Barrier chunk width: 48 | 168; "" = profile default
     gomaxprocs: i32 = 0, // 0 = inherit from the environment
     rekey_every: i64 = 0, // per-worker iterations between rotations; 0 = never
     blob_cycle_every: i64 = 0, // per-worker iterations between reopens; 0 = never

@@ -102,6 +102,8 @@ var opts = try itb.Opts.init();
 defer opts.deinit();
 // Mode 1 per-region (default), Mode 2 per-container (compact VPN tunnel mode)
 try opts.set("mode", "2");
+// Interlocked Barrier chunk width: "48" (default) or "168" (requires 512-bit hash)
+try opts.set("interlock", "168");
 try opts.set("chunkSize", "65536");
 try opts.set("withWrapper", "false");
 try opts.set("maxWorkers", "4");
