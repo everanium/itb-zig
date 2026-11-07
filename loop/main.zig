@@ -271,7 +271,7 @@ const RawFlags = struct {
 const flag_table = [_]Flag{
     .{ .name = "barrier-fill", .type_label = "int", .kind = .int, .help = "DRBG barrier fill margin: 1 | 2 | 4 | 8 | 16 | 32; 0 = profile default (1)" },
     .{ .name = "blob-cycle-every", .type_label = "int", .kind = .int64, .help = "reopen each pipeline from its session blob every N iterations per worker; 0 = never" },
-    .{ .name = "blob-mode", .type_label = "int", .kind = .int, .help = "container floor sizing mode: 1 (per-region, default) | 2 (per-container)" },
+    .{ .name = "blob-mode", .type_label = "int", .kind = .int, .help = "container floor sizing mode: 1 (per-region, default) | 2 (per-container) | 3 (gauss-posit)" },
     .{ .name = "chunk-size", .type_label = "string", .kind = .string, .help = "streaming chunk-size budget (e.g. 4MB); 0 = profile default; inert for pure message shape" },
     .{ .name = "drbg", .type_label = "string", .kind = .string, .help = "DRBG fill primitive name (see itb3 drbgs); empty = profile default (auto tier)" },
     .{ .name = "duration", .type_label = "duration", .kind = .string, .help = "run duration (Go format: 30s / 5m / 1h); ignored when --iterations > 0" },
@@ -559,9 +559,9 @@ fn parseFlags(gpa: std.mem.Allocator, argv: []const [*:0]const u8, cfg: *Config,
     }
     cfg.blob_mode = f.blob_mode;
     switch (cfg.blob_mode) {
-        1, 2 => {},
+        1, 2, 3 => {},
         else => {
-            err("--blob-mode must be 1 (per-region) | 2 (per-container), got {d}", .{cfg.blob_mode});
+            err("--blob-mode must be 1 (per-region) | 2 (per-container) | 3 (gauss-posit), got {d}", .{cfg.blob_mode});
             return .fail;
         },
     }
@@ -686,7 +686,7 @@ fn logPipelineInitialised(gpa: std.mem.Allocator, profile: []const u8, blob: []c
     var tail_buf: [128]u8 = undefined;
     var tail_len: usize = 0;
     const container_mode = recordInt(obj, "container_mode");
-    if (container_mode == 2) {
+    if (container_mode == 2 or container_mode == 3) {
         if (std.fmt.bufPrint(tail_buf[tail_len..], " container-mode={d}", .{container_mode})) |t| tail_len += t.len else |_| {}
     }
     const drbg = recordStr(obj, "drbg");

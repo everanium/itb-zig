@@ -71,7 +71,7 @@ pub const Config = struct {
     profile: []const u8 = "", // empty = shape-based profile pair
     key_bits: i32 = 0, // 0 = profile default
     nonce_bits: i32 = 0, // 0 = profile default
-    blob_mode: i32 = 1, // container floor sizing mode: 1 (per-region, default) | 2 (per-container)
+    blob_mode: i32 = 1, // container floor sizing mode: 1 (per-region, default) | 2 (per-container) | 3 (gauss-posit)
     chunk_size: i64 = 0, // 0 = profile default
     barrier_fill: i32 = 0, // 0 = profile default
     drbg: []const u8 = "", // DRBG fill primitive; "" = profile default (auto tier)

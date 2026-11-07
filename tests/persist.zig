@@ -192,6 +192,17 @@ test "container floor sizing mode 2 reports container_mode 2" {
     const inspected = try itb.inspect(gpa, blob);
     defer gpa.free(inspected);
     try std.testing.expect(std.mem.indexOf(u8, inspected, "\"container_mode\":2") != null);
+
+    var opts3 = try itb.Opts.init();
+    defer opts3.deinit();
+    try opts3.set("mode", "3");
+    var pipe3 = try itb.Pipeline.init(gpa, "singlemsg-triple-mac-v1", opts3);
+    defer pipe3.deinit();
+    const blob3 = try pipe3.save();
+    defer gpa.free(blob3);
+    const inspected3 = try itb.inspect(gpa, blob3);
+    defer gpa.free(inspected3);
+    try std.testing.expect(std.mem.indexOf(u8, inspected3, "\"container_mode\":3") != null);
 }
 
 test "interlock 168 round trips, travels in the blob, and rejects invalid inputs" {
