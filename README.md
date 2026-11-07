@@ -8,8 +8,8 @@
 
 Thin Zig proxy over the ITB C binding (`bindings/c`), which in turn
 wraps the libitb3 shared library's `ITB_Triple_*` surface
-(`cmd/cshared`). The binding `@cImport`s the C binding's public
-`itb3.h` and **links `libitb3_c.a` + `libitb3.so` at compile time** (an
+(`cmd/cshared`). The binding declares the C binding's public
+`itb3.h` ABI via `extern "c"` and **links `libitb3_c.a` + `libitb3.so` at compile time** (an
 absolute RPATH into `dist/` is embedded) — no runtime symbol loading.
 Every hash-name / MAC-name / cipher-name / profile-name is an opaque
 string passed through to Go for validation; the binding carries no
@@ -118,7 +118,9 @@ by design) and returns the fresh blob; the receiver picks up the new
 masters by loading it:
 
 ```zig
-const rotated = try sender.rekey(&[_]u8{0x11} ** 32, &[_]u8{0x22} ** 32);
+const perm: [32]u8 = @splat(0x11);
+const wrap: [32]u8 = @splat(0x22);
+const rotated = try sender.rekey(&perm, &wrap);
 defer allocator.free(rotated);
 var receiver2 = try itb.Pipeline.load(allocator, rotated, null);
 ```

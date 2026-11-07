@@ -33,6 +33,14 @@ const test_names = [_][]const u8{
 
 const bench_names = [_][]const u8{ "bench_message", "bench_stream", "bench_stream_one_shot" };
 
+fn pathFromRoot(b: *std.Build, sub_path: []const u8) []const u8 {
+    if (@hasDecl(std.Build, "pathFromRoot")) {
+        return b.pathFromRoot(sub_path);
+    }
+    const cwd = std.zig.getResolvedCwd(b.graph.io, b.allocator) catch @panic("OOM");
+    return b.pathResolve(&.{ cwd, b.root.root_dir.path orelse ".", sub_path });
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });
@@ -42,12 +50,15 @@ pub fn build(b: *std.Build) void {
     // run from any directory.
     const c_include = b.path("../c/include");
     const libitb3_c_a = b.path("../c/build/libitb3_c.a");
-    const dist_abs = b.pathFromRoot("../../dist/linux-amd64");
-    const dist: std.Build.LazyPath = .{ .cwd_relative = dist_abs };
+    const dist_abs = pathFromRoot(b, "../../dist/linux-amd64");
+    const dist: std.Build.LazyPath = if (@hasDecl(std.Build.Graph, "cwdRelativePath"))
+        b.graph.cwdRelativePath(dist_abs)
+    else
+        .{ .cwd_relative = dist_abs };
 
-    // Library module: the single @cImport site lives here, so the C
-    // include path and every link input attach to this module and
-    // propagate to each compilation that imports it.
+    // Library module: the single C FFI site (`src/ffi.zig`) lives here,
+    // so the C include path and every link input attach to this module
+    // and propagate to each compilation that imports it.
     const itb_mod = b.addModule("itb3", .{
         .root_source_file = b.path("src/itb.zig"),
         .target = target,

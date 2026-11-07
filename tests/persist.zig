@@ -39,8 +39,8 @@ test "load with master overrides equals a sender rekey" {
     const blob = try sender.save();
     defer gpa.free(blob);
 
-    const perm = [_]u8{0x31} ** 32;
-    const wrap = [_]u8{0x32} ** 32;
+    const perm: [32]u8 = @splat(0x31);
+    const wrap: [32]u8 = @splat(0x32);
     var receiver = try itb.Pipeline.load(gpa, blob, .{ .perm = &perm, .wrap = &wrap });
     defer receiver.deinit();
     const rotated = try receiver.save();
@@ -92,7 +92,7 @@ test "saveF then loadF round trip; missing file is BadInput" {
     defer sender.deinit();
 
     var path_buf: [128]u8 = undefined;
-    const path = try std.fmt.bufPrintZ(&path_buf, "/tmp/itb-zig-persist-{d}.blob", .{std.c.getpid()});
+    const path = try std.fmt.bufPrintSentinel(&path_buf, "/tmp/itb-zig-persist-{d}.blob", .{std.c.getpid()}, 0);
     try sender.saveF(path);
     var receiver = try itb.Pipeline.loadF(gpa, path, null);
     defer receiver.deinit();

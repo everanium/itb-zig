@@ -85,10 +85,11 @@ test "a diagnostic wider than the inline buffer survives the boundary" {
     // snapshots into an inline 2 KiB buffer and widens on the
     // short-buffer return; an intact tail proves the widening branch
     // ran rather than the text having been clipped at the boundary.
+    const fill: [4000]u8 = @splat('a');
     const path = try std.fmt.allocPrintSentinel(
         gpa,
         "/tmp/{s}" ++ tail,
-        .{"a" ** 4000},
+        .{&fill},
         0,
     );
     defer gpa.free(path);

@@ -37,14 +37,14 @@ test "smoke round trip" {
 test "initKeys determinism and errors" {
     const gpa = std.testing.allocator;
 
-    const k0 = [_]u8{0x11} ** 32;
-    const k1 = [_]u8{0x22} ** 32;
-    const k2 = [_]u8{0x33} ** 32;
-    const k3 = [_]u8{0x44} ** 32;
-    const k4 = [_]u8{0x55} ** 32;
-    const k5 = [_]u8{0x66} ** 32;
-    const k6 = [_]u8{0x77} ** 32;
-    const k7 = [_]u8{0x88} ** 32;
+    const k0: [32]u8 = @splat(0x11);
+    const k1: [32]u8 = @splat(0x22);
+    const k2: [32]u8 = @splat(0x33);
+    const k3: [32]u8 = @splat(0x44);
+    const k4: [32]u8 = @splat(0x55);
+    const k5: [32]u8 = @splat(0x66);
+    const k6: [32]u8 = @splat(0x77);
+    const k7: [32]u8 = @splat(0x88);
     const masters = [_][]const u8{ &k0, &k1, &k2, &k3, &k4, &k5, &k6, &k7 };
 
     var p1 = try itb.Pipeline.initKeys(gpa, "singlemsg-triple-mac-v1", null, &masters);

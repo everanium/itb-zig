@@ -533,7 +533,7 @@ fn parseFlags(gpa: std.mem.Allocator, argv: []const [*:0]const u8, cfg: *Config,
     };
     cfg.profile = f.profile;
     if (cfg.profile.len > 0) {
-        const z = gpa.dupeZ(u8, cfg.profile) catch {
+        const z = gpa.dupeSentinel(u8, cfg.profile, 0) catch {
             err("out of memory", .{});
             return .fail;
         };
@@ -736,13 +736,13 @@ fn buildPipeline(
     defer opts.deinit();
     var num: [32]u8 = undefined;
     setNum(opts, "mode", &num, cfg.blob_mode);
-    const hash_z = gpa.dupeZ(u8, cfg.hash) catch return false;
+    const hash_z = gpa.dupeSentinel(u8, cfg.hash, 0) catch return false;
     defer gpa.free(hash_z);
-    const mac_z = gpa.dupeZ(u8, cfg.mac) catch return false;
+    const mac_z = gpa.dupeSentinel(u8, cfg.mac, 0) catch return false;
     defer gpa.free(mac_z);
-    const drbg_z = gpa.dupeZ(u8, cfg.drbg) catch return false;
+    const drbg_z = gpa.dupeSentinel(u8, cfg.drbg, 0) catch return false;
     defer gpa.free(drbg_z);
-    const interlock_z = gpa.dupeZ(u8, cfg.interlock) catch return false;
+    const interlock_z = gpa.dupeSentinel(u8, cfg.interlock, 0) catch return false;
     defer gpa.free(interlock_z);
     opts.set("innerHash", hash_z) catch {};
     opts.set("macName", mac_z) catch {};
@@ -781,7 +781,7 @@ fn buildPipeline(
 }
 
 fn setNum(opts: itb.Opts, key: [:0]const u8, buf: []u8, value: anytype) void {
-    const text = std.fmt.bufPrintZ(buf, "{d}", .{value}) catch return;
+    const text = std.fmt.bufPrintSentinel(buf, "{d}", .{value}, 0) catch return;
     opts.set(key, text) catch {};
 }
 
@@ -980,7 +980,7 @@ fn run(gpa: std.mem.Allocator, argv: []const [*:0]const u8) u8 {
     defer gpa.free(r.pool_steady);
 
     if (cfg.memprofile.len > 0) {
-        const path = gpa.dupeZ(u8, cfg.memprofile) catch {
+        const path = gpa.dupeSentinel(u8, cfg.memprofile, 0) catch {
             err("memprofile: out of memory", .{});
             return 1;
         };

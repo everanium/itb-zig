@@ -36,14 +36,14 @@ fn envOr(env: *const std.process.Environ.Map, key: []const u8, fallback: []const
 pub fn buildOpts(arena: std.mem.Allocator, env: *const std.process.Environ.Map) !itb.Opts {
     const opts = try itb.Opts.init();
     errdefer opts.deinit();
-    try opts.set("nonceBits", try arena.dupeZ(u8, envOr(env, "ITB_NONCE_BITS", "512")));
-    try opts.set("keyBits", try arena.dupeZ(u8, envOr(env, "ITB_KEY_BITS", "1024")));
+    try opts.set("nonceBits", try arena.dupeSentinel(u8, envOr(env, "ITB_NONCE_BITS", "512"), 0));
+    try opts.set("keyBits", try arena.dupeSentinel(u8, envOr(env, "ITB_KEY_BITS", "1024"), 0));
     try opts.set("withParallax", boolStr(env, "ITB_WITH_PARALLAX"));
     try opts.set("withWrapper", boolStr(env, "ITB_WITH_WRAPPER"));
     const hash = envOr(env, "ITB_INNER_HASH", "");
-    if (hash.len > 0) try opts.set("innerHash", try arena.dupeZ(u8, hash));
+    if (hash.len > 0) try opts.set("innerHash", try arena.dupeSentinel(u8, hash, 0));
     const mac_name = envOr(env, "ITB_MAC_NAME", "");
-    if (mac_name.len > 0) try opts.set("macName", try arena.dupeZ(u8, mac_name));
+    if (mac_name.len > 0) try opts.set("macName", try arena.dupeSentinel(u8, mac_name, 0));
     return opts;
 }
 
@@ -61,7 +61,7 @@ pub fn profileName(
 ) ![:0]const u8 {
     const raw = envOr(env, "ITB_PROFILE", "");
     if (raw.len == 0) return fallback;
-    return arena.dupeZ(u8, raw);
+    return arena.dupeSentinel(u8, raw, 0);
 }
 
 /// CSPRNG-fill so plaintext content matches the root Go bench

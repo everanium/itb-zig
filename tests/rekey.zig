@@ -20,8 +20,8 @@ test "rekey refreshes the blob and the pair still round-trips" {
     const before = try sender.save();
     defer gpa.free(before);
 
-    const perm = [_]u8{0x11} ** 32;
-    const wrap = [_]u8{0x22} ** 32;
+    const perm: [32]u8 = @splat(0x11);
+    const wrap: [32]u8 = @splat(0x22);
     const rotated = try sender.rekey(&perm, &wrap);
     defer gpa.free(rotated);
     try std.testing.expect(!std.mem.eql(u8, before, rotated));
